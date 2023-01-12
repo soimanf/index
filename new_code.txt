@@ -1,0 +1,68 @@
+if(!require('IndexConstruction')) {
+  install.packages('IndexConstruction')
+  library('IndexConstruction')
+}
+
+
+library(csvread)
+
+coins_price = read.csv('C:/Users/Florentina/Desktop/test/DeFi_Close1.csv')
+coins_vol = read.csv('C:/Users/Florentina/Desktop/test/DeFi_Volume1.csv')
+coins_market = read.csv('C:/Users/Florentina/Desktop/test/DeFi_MktCap1.csv')
+
+#my_dates = as.Date(coins_price$X,format="%Y-%m-%d")
+my_dates = as.Date(coins_price$X,format="%m/%d/%Y")
+my_dates 
+
+
+library(xts) 
+  
+price = xts(coins_price[,2:ncol(coins_price)], order.by = my_dates)
+vol = xts(coins_vol[,2:ncol(coins_price)], order.by = my_dates)
+market= xts(coins_market[,2:ncol(coins_price)], order.by = my_dates)
+days.line = switchDates(price, specificDate = "1")
+
+
+
+#Compute the index
+
+My_index = indexComp(market, price, vol = NULL, weighting = "market", weighting.all = "market",
+                     ic = "AIC", eval.seq = c("sequential", "all.together"),
+                     optimum = c("local", "global"), start.const = 95, steps = 1, fixed.value = NULL,
+                     base.value = 1000, derivation.period = 1, derivation.period.ic = 3, days.line)
+
+
+#Check the nb of components
+
+x = indexMemberSelection(market, price, vol, weighting = "market",
+                         weighting.all = "market", ic = "AIC", eval.seq = c("sequential", "all.together"),
+                         optimum = c("local", "global"), start.const = 5, steps = 1, fixed.value = NULL,
+                         derivation.period = 1, derivation.period.ic = 3, base.value = 1000, days.line)
+x
+
+
+#Check results
+
+weights(My_index)
+plot(My_index$results$index, type="l")  #--> The index with the components chosen by CRIX
+lines(My_index$results$totalIndex, type='l', col='red')   #--> The index with all the tokens as components
+
+
+length(My_index$results$index)
+dates_index = my_dates[(length(my_dates)-length(My_index$results$index)+1):length(my_dates)]
+
+# Make the plot with chronological dates
+
+iDeFiX = My_index$results$index
+iDeFiX = xts(iDeFiX, order.by=dates_index)
+plot(iDeFiX)
+
+
+#Print the index
+data_to_save = data.frame(matrix(nrow=length(dates_index), ncol=0))
+data_to_save['Date'] = dates_index
+data_to_save['DeFiX'] = iDeFiX
+
+library(openxlsx)
+write.xlsx(data_to_save, 'C:/Users/Florentina/Desktop/iDeFiX1.xlsx')
+
